@@ -47,8 +47,8 @@
     <Reference Include="DiscordRPC, Version=1.0.146.0, Culture=neutral, processorArchitecture=MSIL">
       <HintPath>..\packages\DiscordRichPresence.1.143.0\lib\net35\DiscordRPC.dll</HintPath>
     </Reference>
-    <Reference Include="EliteAPI, Version=3.0.0.0, Culture=neutral, processorArchitecture=MSIL">
-      <HintPath>..\packages\EliteAPI.3.0.0-alpha1\lib\netstandard2.0\EliteAPI.dll</HintPath>
+    <Reference Include="EliteAPI, Version=2.3.1.0, Culture=neutral, processorArchitecture=MSIL">
+      <HintPath>..\packages\EliteAPI.2.3.1-alpha3\lib\netstandard2.0\EliteAPI.dll</HintPath>
     </Reference>
     <Reference Include="INIFileParser, Version=2.5.2.0, Culture=neutral, PublicKeyToken=79af7b307b65cf3c, processorArchitecture=MSIL">
       <HintPath>..\packages\ini-parser.2.5.2\lib\net20\INIFileParser.dll</HintPath>
@@ -84,6 +84,9 @@
     <Compile Include="ActiveSessions.cs" />
     <Compile Include="EventReasons.cs" />
     <Compile Include="Interfaces\CommanderTravelLocation.cs" />
+    <Compile Include="MissionDetails.cs" />
+    <Compile Include="Sessions\MissionRunningSession.cs" />
+    <Compile Include="Sessions\ScavengingSession.cs" />
     <Compile Include="Sessions\CombatSession.cs" />
     <Compile Include="Interfaces\IStatSession.cs" />
     <Compile Include="Interfaces\IStatSessionSummary.cs" />

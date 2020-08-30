@@ -18,7 +18,7 @@ namespace EliteStatsWrangler
             tradingSession.IncrementStat($"Trading - {tradeType} - {typeLocalised} - Market:{marketId}", count);
 
             var signPrice = price;
-            if (tradeType.Equals("buy"))
+            if (tradeType.Equals("buy", StringComparison.OrdinalIgnoreCase))
                 signPrice *= -1;
 
             // This should automagically subtract buy from sale

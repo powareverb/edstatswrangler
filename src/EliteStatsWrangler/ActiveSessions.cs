@@ -28,7 +28,9 @@ namespace EliteStatsWrangler
                     currentTradingSession,
                     currentCombatSession,
                     currentTravelSession,
+                    currentScavengingSession,
                     currentExplorationSession,
+                    currentMissionRunningSession,
                 }); 
             } 
         }
@@ -36,12 +38,17 @@ namespace EliteStatsWrangler
         private TradingSession currentTradingSession = null;
         private CombatSession currentCombatSession = null;
         private TravelSession currentTravelSession = null;
-        private ExplorationSession currentExplorationSession = null; // TODO: Implement
+        private ScavengingSession currentScavengingSession = null;
+        private ExplorationSession currentExplorationSession = null;
+        private MissionRunningSession currentMissionRunningSession = null;
 
         public bool IsActivelyMining { get { return currentMiningSession != null; } }
         public bool IsActivelyTrading { get { return currentTradingSession != null; } }
         public bool IsActivelyFighting { get { return currentCombatSession != null; } }
         public bool IsActivelyTravelling { get { return currentTravelSession != null; } }
+        public bool IsActivelyScavenging { get { return currentScavengingSession != null; } }
+        public bool IsActivelyExploring { get { return currentExplorationSession != null; } }
+        public bool IsActivelyMissionRunning { get { return currentMissionRunningSession != null; } }
 
         public string CurrentShip { get; internal set; }
         public string CommanderName { get; internal set; }
@@ -96,6 +103,39 @@ namespace EliteStatsWrangler
             return currentCombatSession;
         }
 
+        internal ScavengingSession GetScavengingSession(DateTime timestamp, string reason)
+        {
+            if (!IsActivelyScavenging)
+            {
+                currentScavengingSession = new ScavengingSession();
+                currentScavengingSession.SetSessionDefaults(this);
+                currentScavengingSession.StartSession(timestamp, reason);
+            }
+            return currentScavengingSession;
+        }
+
+        internal ExplorationSession GetExplorationSession(DateTime timestamp, string reason)
+        {
+            if (!IsActivelyExploring)
+            {
+                currentExplorationSession = new ExplorationSession();
+                currentExplorationSession.SetSessionDefaults(this);
+                currentExplorationSession.StartSession(timestamp, reason);
+            }
+            return currentExplorationSession;
+        }
+
+        internal MissionRunningSession GetMissionRunningSession(DateTime timestamp, string reason)
+        {
+            if (!IsActivelyMissionRunning)
+            {
+                currentMissionRunningSession = new MissionRunningSession();
+                currentMissionRunningSession.SetSessionDefaults(this);
+                currentMissionRunningSession.StartSession(timestamp, reason);
+            }
+            return currentMissionRunningSession;
+        }
+
         internal void CompleteSession(IStatSession session, DateTime timestamp, string reason)
         {
             // Double check session has some stuff that may have been missed - note this might not be accurate as of start of session :/
@@ -104,7 +144,7 @@ namespace EliteStatsWrangler
 
             // TODO: Deal with previous summaries?
 
-            if(session.SessionTimeConsumed < TimeSpan.FromMinutes(1))
+            if(session.SessionTimeConsumed < TimeSpan.FromSeconds(1))
             {
                 // Bundle these away for debugging?
                 CloseSession(session);
@@ -122,6 +162,7 @@ namespace EliteStatsWrangler
             CloseSession(session);
         }
 
+
         private void CloseSession(IStatSession session)
         {
             // Close off session based on type
@@ -133,6 +174,10 @@ namespace EliteStatsWrangler
                 currentCombatSession = null;
             if (session.SessionType == TravelSession.DefaultSessionType)
                 currentTravelSession = null;
+            if (session.SessionType == ExplorationSession.DefaultSessionType)
+                currentExplorationSession = null;
+            if (session.SessionType == ScavengingSession.DefaultSessionType)
+                currentScavengingSession = null;
         }
 
         private void DisplaySummary(IStatSessionSummary summary)
@@ -246,6 +291,65 @@ namespace EliteStatsWrangler
                 this.CompleteSession(this.GetTradeSession(timestamp, reason), timestamp, reason);
         }
 
+
+        internal ScavengingSession StartedScavenging(DateTime timestamp, string reason)
+        {
+            if (!this.IsActivelyScavenging)
+            {
+                var session = this.GetScavengingSession(timestamp, reason);
+                NotifySession(session);
+                return session;
+            }
+            else
+            {
+                return this.GetScavengingSession(timestamp, reason);
+            }
+        }
+
+        public void StoppedScavenging(DateTime timestamp, string reason)
+        {
+            if (this.IsActivelyScavenging)
+                this.CompleteSession(this.GetScavengingSession(timestamp, reason), timestamp, reason);
+        }
+
+        internal ExplorationSession StartedExploring(DateTime timestamp, string reason)
+        {
+            if (!this.IsActivelyExploring)
+            {
+                var session = this.GetExplorationSession(timestamp, reason);
+                NotifySession(session);
+                return session;
+            }
+            else
+            {
+                return this.GetExplorationSession(timestamp, reason);
+            }
+        }
+        public void StoppedExploring(DateTime timestamp, string reason)
+        {
+            if (this.IsActivelyExploring)
+                this.CompleteSession(this.GetExplorationSession(timestamp, reason), timestamp, reason);
+        }
+
+        internal MissionRunningSession StartedMissionRunning(DateTime timestamp, string reason)
+        {
+            if (!this.IsActivelyMissionRunning)
+            {
+                var session = this.GetMissionRunningSession(timestamp, reason);
+                NotifySession(session);
+                return session;
+            }
+            else
+            {
+                return this.GetMissionRunningSession(timestamp, reason);
+            }
+        }
+        public void StoppedMissionRunning(DateTime timestamp, string reason)
+        {
+            if (this.IsActivelyMissionRunning)
+                this.CompleteSession(this.GetMissionRunningSession(timestamp, reason), timestamp, reason);
+        }
+
         public void SaveSessionSummary(IStatSessionSummary session)
         {
             using (StreamWriter file = File.CreateText(_basePath + $"/SessionSummary-{session.TimeStamp}-{session.SessionType}.json"))
@@ -272,17 +376,8 @@ namespace EliteStatsWrangler
         internal void Shutdown(DateTime timestamp)
         {
             var reason = "Shutdown";
-            if (this.IsActivelyMining)
-                this.CompleteSession(this.GetMiningSession(timestamp, reason), timestamp, reason);
-
-            if (this.IsActivelyFighting)
-                this.CompleteSession(this.GetCombatSession(timestamp, reason), timestamp, reason);
-
-            if (this.IsActivelyTrading)
-                this.CompleteSession(this.GetTradeSession(timestamp, reason), timestamp, reason);
-
-            if (this.IsActivelyTravelling)
-                this.CompleteSession(this.GetTravelSession(timestamp, reason), timestamp, reason);
+            foreach (var session in CurrentSessions.Where(p => p != null))
+                this.CompleteSession(session, timestamp, reason);
 
             // Save all sessions?
             foreach (var session in sessionList)

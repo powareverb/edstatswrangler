@@ -9,7 +9,7 @@ namespace EliteStatsWrangler
         private string prevBody;
         private long? prevMarket;
 
-        public TravelSession()//AutoMapper.IMapper objectMapper) : base(objectMapper)
+        public TravelSession()
         {
             SessionType = DefaultSessionType;
         }

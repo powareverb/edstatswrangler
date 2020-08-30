@@ -37,7 +37,14 @@ namespace EliteStatsWrangler
         //    ObjectMapper = objectMapper;
         //}
 
-
+        protected void IncrementStat(string statName, float statInc)
+        {
+            // TODO: Implement, for now just bodge
+            if (!this._summaryStats.ContainsKey(statName))
+                this._summaryStats.Add(statName, (long)statInc);
+            else
+                this._summaryStats[statName] = this._summaryStats[statName] + (long)statInc;
+        }
         protected void IncrementStat(string statName, long statInc)
         {
             if (!this._summaryStats.ContainsKey(statName))
@@ -72,22 +79,18 @@ namespace EliteStatsWrangler
                 this.SessionCommanderName = activeSessions.CommanderName;
             UpdateLocation(activeSessions.CurrentLocation);
 
-            //if (string.IsNullOrEmpty(this.SessionLocationStartSystem))
-            //    this.SessionLocationStartSystem = activeSessions.CurrentSystem;
-            //if (string.IsNullOrEmpty(this.SessionLocationStartBody))
-            //    this.SessionLocationStartBody = activeSessions.CurrentBody;
             if (string.IsNullOrEmpty(this.SessionShipName))
                 this.SessionShipName = activeSessions.CurrentShip;
             if (string.IsNullOrEmpty(this.SessionShipIdent))
                 this.SessionShipIdent = activeSessions.CurrentShipIdent;
         }
 
-        public void StartSession(DateTime timestamp, string reason)
+        public virtual void StartSession(DateTime timestamp, string reason)
         {
             this.SessionStarted = timestamp;
             this.ReasonStarted = reason;
         }
-        public void EndSession(DateTime timestamp, string reason)
+        public virtual void EndSession(DateTime timestamp, string reason)
         {
             UpdateEndLocation(LocationCurrent);
 
@@ -134,17 +137,6 @@ namespace EliteStatsWrangler
             return ret;
         }
 
-        //internal virtual void UpdateLocation(string currentSystem, string currentBody, long? marketId)
-        //{
-        //    var tmp = new CommanderTravelLocation()
-        //    {
-        //        SystemName = currentSystem,
-        //        BodyName = currentBody,
-        //        MarketId = marketId,
-        //    };
-        //    UpdateLocation(tmp);
-        //}
-
         public virtual void UpdateLocation(CommanderTravelLocation currentLocation)
         {
             // Nothing to see here
@@ -154,6 +146,7 @@ namespace EliteStatsWrangler
             LocationCurrent = new CommanderTravelLocation()
             {
                 SystemName = currentLocation.SystemName,
+                SystemAddress = currentLocation.SystemAddress,
                 BodyName = currentLocation.BodyName,
                 MarketId = currentLocation.MarketId,
             };
@@ -163,6 +156,7 @@ namespace EliteStatsWrangler
                 LocationStart = new CommanderTravelLocation()
                 {
                     SystemName = currentLocation.SystemName,
+                    SystemAddress = currentLocation.SystemAddress,
                     BodyName = currentLocation.BodyName,
                     MarketId = currentLocation.MarketId,
                 };

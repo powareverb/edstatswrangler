@@ -18,6 +18,7 @@ namespace EliteStatsWrangler
         private static ActiveSessions currentSessions;
         private static bool _stopMiningOnFsdJump = true;
         private static bool _consoleDebug = true;
+        private static bool _raiseOnCatchup = true;
         private static MapperConfiguration _mapperConfig;
 
         private static void Main(string[] args)
@@ -34,7 +35,7 @@ namespace EliteStatsWrangler
             EliteConfiguration cfg = new EliteConfiguration()
             {
                 JournalDirectory = journalDirectory,
-                RaiseOnCatchup = true,
+                RaiseOnCatchup = _raiseOnCatchup,
                 UseDiscordRichPresence = false,
             };
             EliteAPI = new EliteDangerousAPI(cfg);
@@ -77,23 +78,182 @@ namespace EliteStatsWrangler
             EliteAPI.Events.DockedEvent += Events_DockedEvent;
             EliteAPI.Events.UndockedEvent += Events_UndockedEvent;
 
+            // Exploration
+            EliteAPI.Events.FuelScoopEvent += Events_FuelScoopEvent;
+            EliteAPI.Events.SellExplorationDataEvent += Events_SellExplorationDataEvent;
+
+            // Scavenging
+            EliteAPI.Events.StatusScoopingEvent += Events_StatusScoopingEvent;
+
+            // Mission running
+            EliteAPI.Events.MissionAbandonedEvent += Events_MissionAbandonedEvent;
+            EliteAPI.Events.MissionAcceptedEvent += Events_MissionAcceptedEvent;
+            EliteAPI.Events.MissionCompletedEvent += Events_MissionCompletedEvent;
+            EliteAPI.Events.MissionFailedEvent += Events_MissionFailedEvent;
+            EliteAPI.Events.MissionRedirectedEvent += Events_MissionRedirectedEvent;
+            EliteAPI.Events.MissionsEvent += Events_MissionsEvent;
+
+            // Combat
+            EliteAPI.Events.CockpitBreachedEvent += Events_CockpitBreachedEvent;
+            EliteAPI.Events.RedeemVoucherEvent += Events_RedeemVoucherEvent;
+
+            // Tricks
+            EliteAPI.Events.AllEvent += Events_AllEvent;
+
             EliteAPI.Start();
 
-            Thread.Sleep(-1);
+            Console.WriteLine("Press any key to quit");
+            Console.ReadKey();
         }
 
+        private static void Events_RedeemVoucherEvent(object sender, EliteAPI.Events.RedeemVoucherInfo e)
+        {
+            // Add bounty vouchers
+            if (e.Type.Equals("Bounty", StringComparison.OrdinalIgnoreCase))
+            {
+                var session = currentSessions.StartedCombat(e.Timestamp, EventReasons.RedeemedBountyVoucher);
+                session.RedeemedBountyVoucher(e.Amount, e.Factions, currentSessions.CurrentLocation);
+            }
+            else if (e.Type.Equals("Combat", StringComparison.OrdinalIgnoreCase))
+            {
+                var session = currentSessions.StartedCombat(e.Timestamp, EventReasons.RedeemedCombatBonds);
+                session.RedeemedBountyVoucher(e.Amount, e.Factions, currentSessions.CurrentLocation);
+            } 
+            else
+            {
+                // ?
+            }
+
+            // InfluencePeddling?
+        }
+
+        private static void Events_AllEvent(object sender, EliteAPI.Events.EventBase e)
+        {
+            if(e as EliteAPI.Events.ReceiveTextInfo != null)
+            {
+                var msg = e as EliteAPI.Events.ReceiveTextInfo;
+                if(msg.Channel.Equals("npc"))
+                {
+                } 
+                else
+                {
+                }
+            }
+            if (e as EliteAPI.Events.SendTextInfo != null)
+            {
+                var msg = e as EliteAPI.Events.SendTextInfo;
+            }
+        }
+
+        private static void Events_MissionsEvent(object sender, MissionsInfo e)
+        {
+            //var session = currentSessions.StartedMissionRunning(e.Timestamp, EventReasons.CargoScooping);
+        }
+
+        private static void Events_MissionRedirectedEvent(object sender, EliteAPI.Events.MissionRedirectedInfo e)
+        {
+            var session = currentSessions.StartedMissionRunning(e.Timestamp, EventReasons.MissionRedirected);
+        }
+
+        private static void Events_MissionFailedEvent(object sender, EliteAPI.Events.MissionFailedInfo e)
+        {
+            var session = currentSessions.StartedMissionRunning(e.Timestamp, EventReasons.MissionFailed);
+            var deets = new MissionDetails()
+            {
+                MissionId = e.MissionId,
+                Timestamp = e.Timestamp,
+            };
+            session.FailedMission(deets);
+        }
+
+        private static void Events_MissionCompletedEvent(object sender, EliteAPI.Events.MissionCompletedInfo e)
+        {
+            var session = currentSessions.StartedMissionRunning(e.Timestamp, EventReasons.MissionCompleted);
+            var deets = new MissionDetails()
+            {
+                MissionId = e.MissionId,
+                Faction = e.Faction,
+                TargetFaction = e.TargetFaction,
+                //DestinationSystem = e.DestinationSystem,
+                //DestinationStation = e.DestinationStation,
+                FactionEffects = e.FactionEffects,
+                MaterialsReward = e.MaterialsReward,
+                Timestamp = e.Timestamp,
+            };
+            session.CompletedMission(deets);
+        }
+
+        private static void Events_MissionAcceptedEvent(object sender, EliteAPI.Events.MissionAcceptedInfo e)
+        {
+            var session = currentSessions.StartedMissionRunning(e.Timestamp, EventReasons.MissionAccepted);
+            var deets = new MissionDetails()
+            {
+                MissionId = e.MissionId,
+                Faction = e.Faction,
+                Expiry = e.Expiry,
+                //DestinationSystem = e.DestinationSystem,
+                //DestinationStation = e.DestinationStation,
+                PassengerCount = e.PassengerCount,
+                CommodityName = e.CommodityLocalised,
+                CommodityCount = e.Count,
+                Timestamp = e.Timestamp,
+                Influence = e.Influence,
+                Reputation = e.Reputation,
+            };
+            session.AcceptedMission(deets);
+        }
+
+        private static void Events_MissionAbandonedEvent(object sender, EliteAPI.Events.MissionAbandonedInfo e)
+        {
+            var session = currentSessions.StartedMissionRunning(e.Timestamp, EventReasons.MissionAbandoned);
+            var deets = new MissionDetails()
+            {
+                MissionId = e.MissionId,
+                Timestamp = e.Timestamp,
+            };
+            session.AbandonedMission(deets);
+        }
+
+        private static void Events_CockpitBreachedEvent(object sender, EliteAPI.Events.CockpitBreachedInfo e)
+        {
+            var session = currentSessions.StartedCombat(e.Timestamp, EventReasons.CargoScooping);
+            session.CockpitBreached();
+        }
+
+        private static void Events_StatusScoopingEvent(object sender, EliteAPI.Events.StatusEvent e)
+        {
+            var session = currentSessions.StartedScavenging(e.Timestamp, EventReasons.CargoScooping);
+        }
+
+        private static void Events_FuelScoopEvent(object sender, EliteAPI.Events.FuelScoopInfo e)
+        {
+            var session = currentSessions.StartedExploring(e.Timestamp, EventReasons.FuelScooping);
+            session.ScoopedFuel(e.Scooped);
+        }
+
+        private static void Events_SellExplorationDataEvent(object sender, EliteAPI.Events.SellExplorationDataInfo e)
+        {
+            // Add to missions too?
+            var session = currentSessions.StartedExploring(e.Timestamp.ToUniversalTime(), EventReasons.FuelScooping);
+            session.SoldExplorationData(e, currentSessions.CurrentLocation);
+            //session.ScoopedFuel(e.Scooped);
+            // InfluencePeddling?
+        }
 
         private static void Events_StatusFsdChargingEvent(object sender, EliteAPI.Events.StatusEvent e)
         {
             if (_stopMiningOnFsdJump)
-                currentSessions.StoppedMining(e.Timestamp, EventReasons.FSDCharge);
+                currentSessions.StoppedMining(e.Timestamp.ToUniversalTime(), EventReasons.FSDCharge);
 
             if (_stopMiningOnFsdJump)
-                currentSessions.StoppedCombat(e.Timestamp, EventReasons.FSDCharge);
+                currentSessions.StoppedCombat(e.Timestamp.ToUniversalTime(), EventReasons.FSDCharge);
 
             // We will combine travel and trade in a summary
             if (_stopMiningOnFsdJump)
-                currentSessions.StoppedTrading(e.Timestamp, EventReasons.FSDCharge);
+                currentSessions.StoppedTrading(e.Timestamp.ToUniversalTime(), EventReasons.FSDCharge);
+
+            if (_stopMiningOnFsdJump)
+                currentSessions.StoppedScavenging(e.Timestamp.ToUniversalTime(), EventReasons.FSDCharge);
         }
 
         private static void Events_MusicEvent(object sender, EliteAPI.Events.MusicInfo e)
@@ -120,6 +280,16 @@ namespace EliteStatsWrangler
             };
             currentSessions.UpdatedLocation(e.Timestamp, tmp, EventReasons.Docked);
             currentSessions.StoppedTravelling(e.Timestamp, EventReasons.Docked);
+
+            if (_stopMiningOnFsdJump)
+                currentSessions.StoppedCombat(e.Timestamp, EventReasons.Docked);
+            if (_stopMiningOnFsdJump)
+                currentSessions.StoppedExploring(e.Timestamp, EventReasons.Docked);
+            if (_stopMiningOnFsdJump)
+                currentSessions.StoppedMining(e.Timestamp, EventReasons.Docked);
+            if (_stopMiningOnFsdJump)
+                currentSessions.StoppedScavenging(e.Timestamp, EventReasons.Docked);
+
         }
 
         private static void Events_UndockedEvent(object sender, EliteAPI.Events.UndockedInfo e)
@@ -184,7 +354,7 @@ namespace EliteStatsWrangler
 
         private static void Events_FSDJumpEvent(object sender, FSDJumpInfo e)
         {
-            var reason = "FSD Jump";
+            var reason = EventReasons.FSDJump;
             var tmp = new CommanderTravelLocation()
             {
                 SystemName = e.StarSystem,
